@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  SALES_MANAGER
+  INSTALLER
+  VIEWER
+}
+
+enum ProjectStatus {
+  LEAD
+  QUOTING
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  INVOICED
+  READY_FOR_SCHEDULING
+  REVIEW_NEEDED
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+  READY_TO_INVOICE
+}
+
+enum WOStatus {
+  ASSIGNED
+  IN_PROGRESS
+  ISSUE_REPORTED
+  COMPLETED
+}
+
+enum PhotoStage {
+  BEFORE
+  DURING
+  AFTER
+}
+
+model User {
+  id              String     @id @default(uuid())
+  email           String     @unique
+  name            String?
+  role            Role       @default(VIEWER)
+  passwordHash    String?
+  googleId        String?    @unique
+  phone           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  installer       Installer?
+}
+
+model Client {
+  id             String    @id @default(uuid())
+  name           String
+  mainContact    String?
+  billingAddress String?
+  phone          String?
+  email          String?
+  projects       Project[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Installer {
+  id              String      @id @default(uuid())
+  userId          String      @unique
+  user            User        @relation(fields: [userId], references: [id])
+  name            String
+  email           String
+  phone           String?
+  costRateDaily   Float?
+  costRateHourly  Float?
+  workOrders      WorkOrder[]
+}
+
+model Provider {
+  id              String            @id @default(uuid())
+  name            String
+  contactInfo     String?
+  products        Product[]
+  purchaseOrders  PurchaseOrder[]
+}
+
+model Product {
+  id           String           @id @default(uuid())
+  name         String
+  type         String
+  thickness    String?
+  providerId   String?
+  provider     Provider?        @relation(fields: [providerId], references: [id])
+  costPerUnit  Float?
+  salesPrice   Float?
+  quoteItems   QuoteLineItem[]
+}
+
+model Project {
+  id              String            @id @default(uuid())
+  clientId        String
+  client          Client            @relation(fields: [clientId], references: [id])
+  name            String
+  description     String?
+  siteAddress     String?
+  siteContact     String?
+  status          ProjectStatus     @default(LEAD)
+  details         String?
+  planning        String?
+  projectValue    Float?
+  estimatedCosts  Float?
+  quotes          Quote[]
+  workOrders      WorkOrder[]
+  purchaseOrders  PurchaseOrder[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model Quote {
+  id               String           @id @default(uuid())
+  projectId        String
+  project          Project          @relation(fields: [projectId], references: [id])
+  createdByEmail   String
+  assessmentNotes  String?
+  status           QuoteStatus      @default(DRAFT)
+  totalMaterial    Float?
+  totalLabor       Float?
+  totalPrice       Float?
+  lineItems        QuoteLineItem[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model QuoteLineItem {
+  id                 String   @id @default(uuid())
+  quoteId            String
+  quote              Quote    @relation(fields: [quoteId], references: [id])
+  areaDescription    String?
+  areaSqFt           Float?
+  productId          String?
+  product            Product? @relation(fields: [productId], references: [id])
+  estimatedLaborDays Float?
+}
+
+model WorkOrder {
+  id                  String     @id @default(uuid())
+  projectId           String
+  project             Project    @relation(fields: [projectId], references: [id])
+  assignedInstallerId String?
+  assignedInstaller   Installer? @relation(fields: [assignedInstallerId], references: [id])
+  scheduledStart      DateTime?
+  estimatedDuration   Int?
+  status              WOStatus   @default(ASSIGNED)
+  specs               String?
+  finalDuration       Int?
+  photos              Photo[]
+  safetyInstructions  String?
+  unionLabor          Boolean?   @default(false)
+  requiredTraining    String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+}
+
+model PurchaseOrder {
+  id         String   @id @default(uuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id])
+  providerId String
+  provider   Provider @relation(fields: [providerId], references: [id])
+  materials  String?
+  status     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Photo {
+  id          String    @id @default(uuid())
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+  takenByEmail String
+  timestamp   DateTime  @default(now())
+  stage       PhotoStage
+  url         String
+}
